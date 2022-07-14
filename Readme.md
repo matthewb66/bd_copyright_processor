@@ -1,4 +1,4 @@
-# Notices Report Generator
+# Black Duck Copyright Processor
 
 # OVERVIEW
 
