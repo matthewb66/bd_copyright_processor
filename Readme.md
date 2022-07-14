@@ -2,7 +2,7 @@
 
 # OVERVIEW
 
-This script is provided under an OSS license (specified in the LICENSE file) to allow users to export SPDX version 2.2 in JSON format from Black Duck projects.
+This script is provided under an OSS license (specified in the LICENSE file).
 
 It does not represent any extension of licensed functionality of Synopsys software itself and is provided as-is, without warranty or liability.
 
