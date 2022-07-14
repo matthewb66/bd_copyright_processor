@@ -1,5 +1,15 @@
 # Notices Report Generator
 
+# OVERVIEW
+
+This script is provided under an OSS license (specified in the LICENSE file) to allow users to export SPDX version 2.2 in JSON format from Black Duck projects.
+
+It does not represent any extension of licensed functionality of Synopsys software itself and is provided as-is, without warranty or liability.
+
+# DESCRIPTION
+
+This script processes an existing Black Duck project version to extract copyrights, which are filtered to remove duplicates and incorrectly identified copyrights, and export in a text format for use in a notices file.
+
 ## Installation
 
 Clone the repo from git hub and install the dependencies listed in the requirements file
