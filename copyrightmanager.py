@@ -1,8 +1,9 @@
-from blackduck.HubRestApi import HubInstance
+# from blackduck.HubRestApi import HubInstance
 import regex
 import html2text
-import unicodedata, itertools, sys
+import itertools, sys
 import logging
+
 
 class CopyrightManager:
     """Manage copyrights for a BOM component"""
@@ -10,38 +11,52 @@ class CopyrightManager:
     hubInstance = None
     origin = None
     copyrights = None
+    matches = {}
+    final_copyrights = []
+    rejected_matches = []
 
-    def __init__(self, hub, component_name, origin):
+    def __init__(self, hub, component_name, copyrights):
         self.hub = hub
         self.component_name = component_name
-        self.origin = origin
+        self.copyrights = copyrights
         logging.debug(f"Created copyright manager for {self.component_name}")
-        logging.debug(self.origin)
-        self.load_copyrights()
 
-    def load_copyrights(self):
-        url = self.hub.get_link(self.origin, "component-origin-copyrights")
-        url = url + "?limit=1000"
-        self.copyrights = self.hub.execute_get(url).json().get('items', [])
-        logging.debug("length {}".format(len(self.copyrights)))
+    def add_copyrights(self, copyrights):
+        self.copyrights.extend(copyrights)
 
-    def disable_all_copyrights(self, source='KB'):
-        for copyright in self.copyrights:
-            if source != copyright['source']:
-                continue
-            copyright.update({'active': False})
+    # def load_copyrights(self):
+    #     url = self.hub.get_link(self.origin, "component-origin-copyrights")
+    #     url = url + "?limit=1000"
+    #     self.copyrights = self.hub.execute_get(url).json().get('items', [])
+    #     logging.debug("length {}".format(len(self.copyrights)))
 
-        url = self.hub.get_link(self.origin, "component-origin-copyrights")
-        response = self.hub.execute_put(url, data=self.copyrights)
+    # def disable_all_copyrights(self, source='KB'):
+    #     for copyright in self.copyrights:
+    #         if source != copyright['source']:
+    #             continue
+    #         copyright.update({'active': False})
+    #
+    #     url = self.hub.get_link(self.origin, "component-origin-copyrights")
+    #     response = self.hub.execute_put(url, data=self.copyrights)
 
+    def output_copyrights(self):
+        output_string = f"Component: {self.component_name}\n"
 
-    def delete_all_custom_copyrights(self, source='CUSTOM'):
-        for copyright in self.copyrights:
-            if source != copyright['source']:
-                continue
-            url = copyright['_meta']['href']
-            response = self.hub.execute_delete(url)
-            logging.debug(f"{source} {url} {response}")
+        if self.final_copyrights is None or len(self.final_copyrights) == 0:
+            output_string += "   No Copyrights found\n"
+        else:
+            output_string += "Copyrights:\n"
+            for copyright in self.final_copyrights:
+                output_string += "  " + copyright + "\n"
+        return output_string
+
+    # def delete_all_custom_copyrights(self, source='CUSTOM'):
+    #     for copyright in self.copyrights:
+    #         if source != copyright['source']:
+    #             continue
+    #         url = copyright['_meta']['href']
+    #         response = self.hub.execute_delete(url)
+    #         logging.debug(f"{source} {url} {response}")
 
     # if args.not_filtered:
     #     copyright = copyright_entry['updatedCopyright'].replace("\r\n", " ").replace("\n", " ")
@@ -50,10 +65,6 @@ class CopyrightManager:
     #     output_file.write("   " + copyright + "\n")
     #
     #     return
-
-
-
-
 
     def remove_control_chars(self, s):
         all_chars = (chr(i) for i in range(sys.maxunicode))
@@ -66,17 +77,16 @@ class CopyrightManager:
 
     def preprocess_copyrights(self):
         """ Process raw copyrights to remove unnecessary text"""
-        processed_copyrights = []
+        # processed_copyrights = []
         for copyright_entry in self.copyrights:
 
             logging.debug("raw copyright:" + copyright_entry['updatedCopyright'])
             if not copyright_entry['active']:
                 continue
 
-            logging.debug("raw copyright:"+copyright_entry['updatedCopyright'])
+            logging.debug("raw copyright:" + copyright_entry['updatedCopyright'])
             # Remove copyright symbols and replace with "(C)"
             copyright_text = copyright_entry['updatedCopyright'].replace("&copy", "(C)").replace("&#169;", "(C)")
-
 
             # Convert any html to text
             copyright_text = html2text.html2text(copyright_text)
@@ -86,12 +96,12 @@ class CopyrightManager:
 
             # Remove new lines
             copyright_text = copyright_text.replace("\r\n", " ").replace("\n", " ")  # Remove all newlines
-            copyright_text = copyright_text.replace("\\n", " ") # Remove all "newlines"
+            copyright_text = copyright_text.replace("\\n", " ")  # Remove all "newlines"
 
             # Remove comments delimiters
             copyright_text = copyright_text.replace("-->", "").replace("<!--", "")  # XML
             copyright_text = copyright_text.replace("// ", "").replace(" //", "").replace("/*", "").replace("*/",
-                                                                                                  "")  # Remove comments (C-like)
+                                                                                                            "")  # Remove comments (C-like)
             copyright_text = copyright_text.replace("#", "")  # Remove comments (Shell)
             copyright_text = copyright_text.replace("rem ", "")  # Batch scripts?
 
@@ -103,8 +113,8 @@ class CopyrightManager:
             # **************
             # * box of text
             # **************
-            copyright_text = copyright_text.replace("*"," ")
-            copyright_text = copyright_text.replace("~ ~","")
+            copyright_text = copyright_text.replace("*", " ")
+            copyright_text = copyright_text.replace("~ ~", "")
 
             # Remove ============= , happens Often used to delineate text. i.e:
             # ===================================
@@ -113,99 +123,140 @@ class CopyrightManager:
 
             # Clean up whitespace
             copyright_text = copyright_text.strip()
-            copyright_text = regex.sub("\s+", " ", copyright_text)  # Reduce Multiple spaces to single spaces to improve merge
-
+            copyright_text = regex.sub("\s+", " ",
+                                       copyright_text)  # Reduce Multiple spaces to single spaces to improve merge
 
             # Remove "all rights reserved". Need to check if this is OK? Possibly add it back again after merging?
             copyright_text = regex.sub("All rights Reserved.*", "", copyright_text, flags=regex.IGNORECASE)
 
-
             # Licence Cleanup - Where copyright is part of a license, e.g.
             # copyright (C) 2020 Rob Haines. This library is free software ....
             copyright_text = regex.sub("This library is free software.*", "", copyright_text,
-                                  flags=regex.IGNORECASE)
+                                       flags=regex.IGNORECASE)
             copyright_text = regex.sub("under the terms of.*", "", copyright_text, flags=regex.IGNORECASE)
             copyright_text = regex.sub("Licensed under.*", "", copyright_text, flags=regex.IGNORECASE)
             copyright_text = regex.sub("Released under.*", "", copyright_text, flags=regex.IGNORECASE)
             copyright_text = regex.sub("Permission is hereby.*", "", copyright_text, flags=regex.IGNORECASE)
             copyright_text = regex.sub("This product includes software.*", "", copyright_text,
-                                  flags=regex.IGNORECASE)  # Seems to be common in apache
+                                       flags=regex.IGNORECASE)  # Seems to be common in apache
             copyright_text = regex.sub("The .* licenses this file.*", "", copyright_text,
-                                  flags=regex.IGNORECASE)  # Seems to be common in apache code
+                                       flags=regex.IGNORECASE)  # Seems to be common in apache code
             copyright_text = regex.sub("Verbatim copying and distribution.*", "", copyright_text,
-                                  flags=regex.IGNORECASE)
+                                       flags=regex.IGNORECASE)
             copyright_text = regex.sub("This (file )*is free software.*", "", copyright_text,
-                                  flags=regex.IGNORECASE)
+                                       flags=regex.IGNORECASE)
             copyright_text = regex.sub("This program is made available under.*", "", copyright_text,
-                                  flags=regex.IGNORECASE)
+                                       flags=regex.IGNORECASE)
 
             # Code cleanup, where copyrights are added to code, often there are keywords that can be used
             # to show where the copyright ends and the code starts, happens often in minified java script
-            copyright_text = regex.sub("package \w.*", "", copyright_text)  # Remove where is copyright is part of java file
+            copyright_text = regex.sub("package \w.*", "",
+                                       copyright_text)  # Remove where is copyright is part of java file
             copyright_text = regex.sub("@(Deprecated|SuppressWarnings|version|param).*", "",
-                                  copyright_text)  # part of java file
+                                       copyright_text)  # part of java file
             # Javascript
-            copyright_text = regex.sub("(static|public|protected|private|class|interface).*", "",copyright_text)
-
+            copyright_text = regex.sub("(static|public|protected|private|class|interface).*", "", copyright_text)
 
             # And finally....
-            copyright_text = regex.sub('[,.]\s?$', '', copyright_text)  # Punctuation? Where were going we don't need punctuation.
+            copyright_text = regex.sub('[,.]\s?$', '',
+                                       copyright_text)  # Punctuation? Where were going we don't need punctuation.
             copyright_text = regex.sub('".*', '', copyright_text)
             copyright_text = copyright_text.strip()
 
             logging.debug("processed copyright:" + copyright_text)
             copyright_entry["processed_copyright"] = copyright_text
+        return
 
+    def ignore_blank_copyrights(self):
+        check_blank = []
+        check_blank.append(
+            regex.compile(r'(\bcopyright\b|\(c\)|&copy;|©|&#169;|@author\b)\s*([12][90][0-9]{2}[\s,]*){1,}$', regex.IGNORECASE))
+        check_blank.append(
+            regex.compile(r'(\bcopyright\b|\(c\)|&copy;|©)\s*$', regex.IGNORECASE))
+
+        for entry in self.copyrights:
+            if entry['active'] == False:
+                continue
+            copyright_text = entry['processed_copyright']
+
+            for reg in check_blank:
+                m = reg.search(copyright_text)
+                if m:
+                    entry['active'] = False
+                    break
+
+            if entry['active'] == False:
+                continue
+
+            logging.debug("Trying to match: {}".format(copyright_text))
+            # Look for url
+            url_re = regex.compile(r"(\({0,1}+(?:https|http)://[^ ]*\){0,1})")
+            url_matches = url_re.search(copyright_text)
+            url = None
+            if url_matches:
+                url = url_matches.group(1)
+                copyright_text = copyright_text.replace(url, "")
+                copyright_text = copyright_text.strip()
+                copyright_text = regex.sub('[,.]\s?$', '',
+                                           copyright_text)  # Punctuation? Where we're going we don't need punctuation.
+                logging.debug("Matched URL! :" + url)
+                logging.debug("POST Processed:" + copyright_text + " url? " + str(url))
+
+            key = copyright_text.lower()
+            if key not in self.matches:
+                self.matches[key] = {'url': {}, 'copyright': copyright_text, 'rejected': False}
+
+            if url:
+                self.matches[key]['url'][url] = 1
 
     def filter_copyrights(self):
-        p = regex.compile(r'copyright[ ][^0-9]{0,20}[12][90][0-9]{2}|\(C\)[ ,\-:;\w]{5}|©[ ,\-:\w]{5}|@author', regex.IGNORECASE)
-        matches = {}
-        rejected_matches = []
+        # p = regex.compile(r'copyright[ ][^0-9]{0,20}[12][90][0-9]{2}|\(C\)[ ,\-:;\w]{5}|©[ ,\-:\w]{5}|@author',
+        #                   regex.IGNORECASE)
+
+        # First check that the copyright contains the minimum required text (is this a copyright?)
+        copy_minmatch = regex.compile(r'\bcopyright\b[\s:]|\(C\)\s|©|@author\b|\&\bcopy\b;\s|&#169;\s',
+                          regex.IGNORECASE)
+        copy_badmatch = regex.compile(
+            r"((\bcopyright\b)(\s*[={}\)']|[-]|\(\)|\((true|false)\)|\ssign\b)|\bassert\b|\breturn\b|\bextends\b|\bself\.[_a-z]|\(self[,\)]|\bobject\)|\(void\)|\bnull\b)",
+                          regex.IGNORECASE)
+
+
         for copyright in self.copyrights:
             url = None
             if not copyright['active']:
                 logging.debug("Skipping inactive copyright")
                 continue
 
-            copyright_text=copyright['processed_copyright']
-            logging.debug("Trying to match: {}".format(copyright_text))
-            # Look for url
-            url_re = regex.compile(r"(\({0,1}+(?:https|http)://[^ ]*\){0,1})")
-            url_matches = url_re.search(copyright_text)
-            if url_matches:
-                url = url_matches.group(1)
-                copyright_text = copyright_text.replace(url, "")
-                copyright_text = copyright_text.strip()
-                copyright_text = regex.sub('[,.]\s?$', '', copyright_text)  # Punctuation? Where were going we don't need punctuation.
-                logging.debug("Matched URL! :" + url)
-                logging.debug("POST Processed:" + copyright_text + " url? "+str(url))
-            key = copyright_text.lower()
-            if p.search(copyright_text):
+            copyright_text = copyright['updatedCopyright']
 
-                if key not in matches:
-                    matches[key] = {'url': {}, 'copyright': copyright_text, 'rejected': False}
+            if copy_minmatch.search(copyright_text):
+                # Looks like a copyright
+                if not copy_badmatch.search(copyright_text):
+                    # Not found a bad string
 
-                if url:
-                    matches[key]['url'][url] = 1
+                    logging.debug("MATCHED Copyright text:" + copyright_text)
+                    copyright['active'] = True
+                    continue
 
-                logging.debug("MATCHED Copyright text:" + copyright_text)
-            else:
-                rejected_matches.append(copyright['updatedCopyright'])
+            # Not a good copyright
+            self.rejected_matches.append(copyright['updatedCopyright'])
+            copyright['active'] = False
 
-        return matches, rejected_matches
-
+        return
 
     def coalesce_dates(self, matches):
         newMatches = {}
         non_coerced = []
-        coerced=[]
+        coerced = []
         coerce = []
         coerce.append(
             regex.compile(r'(?:\(c\)\s)((?:[12][90][0-9]{2}[\s,-]{1,3})+)(.*)$', regex.IGNORECASE))
         coerce.append(
             regex.compile(r'copyright\s(?:\(c\)\s|©\s){0,1}((?:[12][90][0-9]{2}[\s,]{1,3})+)(.*)$', regex.IGNORECASE))
-        coerce.append(regex.compile(r'copyright\s(?:\(c\)\s|©\s){0,1}([12][90][0-9]{2}[-][12][90][0-9]{2}[\s,]{1,3})(.*)$',
-                                    regex.IGNORECASE))
+        coerce.append(
+            regex.compile(r'copyright\s(?:\(c\)\s|©\s){0,1}([12][90][0-9]{2}[-][12][90][0-9]{2}[\s,]{1,3})(.*)$',
+                          regex.IGNORECASE))
+
         for match in matches:
 
             found = False
@@ -214,10 +265,11 @@ class CopyrightManager:
                 if m:
                     date = m.group(1)
                     holder = m.group(2)
-                    logging.debug(f"    Coerced: {match}")
-                    logging.debug( "     - Date:"+str(date)+" Holder:"+str(holder))
-                    if not holder in newMatches:
-                        newMatches[holder] = {'holder': holder, 'date': self.parse_date(date), 'url': matches[match]['url']}
+                    # logging.debug(f"    Coerced: {match}")
+                    # logging.debug("     - Date:" + str(date) + " Holder:" + str(holder))
+                    if holder not in newMatches:
+                        newMatches[holder] = {'holder': holder, 'date': self.parse_date(date),
+                                              'url': matches[match]['url']}
                     else:
                         newMatches[holder]['date'].update(self.parse_date(date))
                     found = True
@@ -227,12 +279,10 @@ class CopyrightManager:
                 non_coerced.append(matches[match]['copyright'])
         #				logging.debug(f"Not Coerced: {match}")
 
-
         for match in newMatches:
             # logging.debug(newMatches[match])
             output_string = "Copyright (C) {} {}".format(self.print_range(newMatches[match]['date']),
-                                                                             newMatches[match]['holder'])
-
+                                                         newMatches[match]['holder'])
 
             # print_range(newMatches[match])
             if 'url' in newMatches[match]:
@@ -241,7 +291,7 @@ class CopyrightManager:
                     output_string = output_string + " " + url
             coerced.append(output_string)
 
-        return coerced,non_coerced
+        return coerced, non_coerced
 
     def parse_date(self, date):
         date_range = regex.compile(r'([12][90][0-9]{2})[-]{1,}([12][90][0-9]{2})')
@@ -265,13 +315,11 @@ class CopyrightManager:
                     try:
                         date_data.update({int(adate): 1})
                     except Exception as e:
-                        logging.warning("Cannot parse date:"+adate+" Defaulted to 1970. ACTION REQUIRED - Please update this manually")
-                        date_data.update({1970:1})
-
-
+                        logging.warning(
+                            "Cannot parse date:" + adate + " Defaulted to 1970. ACTION REQUIRED - Please update this manually")
+                        date_data.update({1970: 1})
 
         return date_data
-
 
     def print_range(self, date):
         output = []
@@ -298,34 +346,122 @@ class CopyrightManager:
 
         return ','.join(output)
 
-
-    def get_copyrights(self, showRejected=False, annotateResults=False, unfiltered = False):
-
+    def process_copyrights(self, showRejected=False, annotateResults=False, unfiltered=False):
         if not unfiltered:
-        #Preprocess copyrights to remove noise
+            # Preprocess copyrights to remove noise
+            self.filter_copyrights()
             self.preprocess_copyrights()
-            filtered_copyrights,rejected_copyrights=self.filter_copyrights()
+            self.ignore_blank_copyrights()
 
-            coalesced_copyrights,non_coalesced_copyrights = self.coalesce_dates(filtered_copyrights)
+            coalesced_copyrights, non_coalesced_copyrights = self.coalesce_dates(self.matches)
 
-            output=coalesced_copyrights
-            output.extend(non_coalesced_copyrights)
-        #for output in coalesced_copyrights:
-#            logging.debug(output)
-#        for output in non_coalesced_copyrights:
-#            logging.debug(output)
-            return output,rejected_copyrights
+            self.final_copyrights = coalesced_copyrights
+            if len(non_coalesced_copyrights) > 0:
+                self.final_copyrights.extend(non_coalesced_copyrights)
+            # for output in coalesced_copyrights:
+            #            logging.debug(output)
+            #        for output in non_coalesced_copyrights:
+            #            logging.debug(output)
 
         else:
-            output=[]
-            rejected_copyrights=[]
+            self.final_copyrights = []
             for copyright_entry in self.copyrights:
 
                 if not copyright_entry['active']:
                     continue
 
                 logging.debug("raw copyright:" + copyright_entry['updatedCopyright'])
-                output.append(copyright_entry['updatedCopyright'])
-            return output,rejected_copyrights
+                self.final_copyrights.append(copyright_entry['updatedCopyright'])
+
+        return
 
 
+class ComponentList:
+    components_dict = {}
+
+    def __init__(self):
+        self.components_dict = {}
+
+    def add(self, compname, copyrightmgr):
+        self.components_dict[compname] = copyrightmgr
+
+    def process_bom(self, bd, bom_components, all_copyrights):
+        count = len(bom_components)
+        logging.info("Processing BOM components ...")
+        for compurl, bom_component in bom_components.items():
+
+            if 'componentVersionName' in bom_component:
+                bom_component_name = f"{bom_component['componentName']}:{bom_component['componentVersionName']}"
+            else:
+                bom_component_name = f"{bom_component['componentName']}"
+                logging.warning(f"Component found with no version: {bom_component_name}")
+                continue
+
+            count -= 1
+            logging.info(f"Processing: {bom_component_name} ({count} remaining)")
+
+            if bom_component_name in self.components_dict.keys():
+                logging.warning(f"Skipping {bom_component_name} : Already processed")
+                continue
+
+            # MRB - removed license reporting
+            # component_licenses = hub.get_license_info_for_bom_component(bom_component)
+            #
+            #
+            # logging.debug("component_licenses: {}".format(component_licenses))
+            # for license in component_licenses.keys():
+            # 	license_by_component[bom_component_name] = license
+            # 	if not license in licenses:
+            # 		licenses[license]={'components' : [bom_component_name], 'text' : component_licenses[license]['license_text_info']}
+            #
+            # 	else:
+            # 		licenses[license]['components'].append(bom_component_name)
+            #
+
+            copyrightmanager = None
+            if 'origins' in bom_component:
+                for origin in bom_component['origins']:
+                    #
+                    # Find copyright for origin in all_copyrights dict
+                    origcopyrights = []
+                    if origin['origin'] in all_copyrights:
+                        origcopyrights = all_copyrights[origin['origin']]
+                    if len(origcopyrights) > 0:
+                        if copyrightmanager is None:
+                            copyrightmanager = CopyrightManager(bd, bom_component_name, origcopyrights)
+                        else:
+                            copyrightmanager.add_copyrights(origcopyrights)
+
+            copyright_list = []
+            rejected_copyrights = []
+            if copyrightmanager is not None:
+                copyrightmanager.process_copyrights()
+                self.add(bom_component_name, copyrightmanager)
+
+            # copyright_list, rejected_copyrights = copyrightmanager.process_copyrights(unfiltered=args.not_filtered)
+            #
+        # if 'externalId' in origin:
+        # 	key = origin['externalId']
+        # else:
+        # 	key = origin['name']
+        #
+        # if key not in copyrights:
+        # 	logging.debug("Adding new copyrights for key {} size {}".format(key, len(copyright_list)))
+        # 	copyrights.update({bom_component_name: {key: {'copyrights': copyright_list, 'rejected':
+        # 		rejected_copyrights } }})
+        # else:
+        # 	logging.debug("extending copyrights for key {} size {}".format(key, len(copyright_list)))
+        # 	copyrights[bom_component_name][key]['copyrights'].extend(copyright_list)
+        # 	copyrights[bom_component_name][key]['rejected'].extend(rejected_copyrights)
+        # 	#	copyrightmanager.disable_all_copyrights()
+        # 	#	copyrightmanager.delete_all_custom_copyrights()
+
+    def generate_text_report(self, project, version):
+        output_string = "\n" + project + " " + version + "\n================================\n"
+        for compname, copyrightmgr in self.components_dict.items():
+            output_string += '\n' + copyrightmgr.output_copyrights()
+            # if args.show_rejected:
+            #     for copyright in copyrights[component][origin]['rejected']:
+            #         output_string = output_string + "  REJECTED: " + copyright + "\n"
+
+        return output_string

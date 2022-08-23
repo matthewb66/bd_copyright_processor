@@ -1,4 +1,6 @@
 regex
 blackduck
 html2text
+aiohttp
+asyncio
 
