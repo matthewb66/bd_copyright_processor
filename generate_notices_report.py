@@ -3,12 +3,15 @@
 import argparse
 import json
 import logging
+from pydoc import doc
 import sys
 import regex
 from blackduck.HubRestApi import HubInstance
 import html2text
 import hashlib
 from copyrightmanager import CopyrightManager
+from copyrightprocessor import CopyrightProcessor
+import cProfile
 
 
 logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s', stream=sys.stderr, level=logging.DEBUG)
@@ -20,7 +23,9 @@ logging.getLogger().setLevel(logging.INFO)
 parser = argparse.ArgumentParser("Generate notice report with filtered copyright information")
 parser.add_argument("project_name",help="The name of the project in Blackduck")
 parser.add_argument("version",help="The name of the version in Blackduck")
-parser.add_argument("-d","--debug", action="store_true",help="Enable debug output")
+parser.add_argument("-l","--max_lines", default=2, help="Maximum processed copyright lines")
+parser.add_argument("-c","--code_languages", default="all", help="Specify which code fragments should be removed (optional): csharp,cpp,java,js,shell,xml,sql")
+parser.add_argument("-d","--debug", action="store_true", help="Enable debug output")
 parser.add_argument("-f","--file")
 parser.add_argument("-nf","--not_filtered", action="store_true")
 parser.add_argument("-nd","--no_date",action="store_true",)
@@ -54,6 +59,8 @@ version = hub.get_version_by_name(project, args.version)
 bom_components = hub.get_version_components(version).get('items', [])
 logging.debug("bom_components: {}".format(bom_components))
 
+
+
 if not args.use_json:
 	new_components=[]
 	for bom_component in bom_components:
@@ -84,14 +91,16 @@ license_by_component={}
 copyrights = {}
 duplicate_check = {}
 
-def process_bom(hub,bom_components):
+def process_bom(hub, bom_components):
+
+	copyrightprocessor = CopyrightProcessor(args.code_languages.split(','), int(args.max_lines))
 
 	logging.info("Processing {} bom entries: ".format(len(bom_components)))
 	count=len(bom_components)
 
-
 	for bom_component in bom_components:
 
+		count=count-1
 		if 'componentVersionName' in bom_component:
 			bom_component_name = f"{bom_component['componentName']}:{bom_component['componentVersionName']}"
 		else:
@@ -99,9 +108,13 @@ def process_bom(hub,bom_components):
 			logging.warning("Component found with no version: {}".format(bom_component_name))
 			continue
 
-		count=count-1
-		logging.info("Processing: {} {} remaining".format(bom_component_name,count))
 
+		if bom_component['ignored'] == True:
+			logging.info("Skipping: {} {} remaining".format(bom_component_name, count))
+			continue
+		else:
+			logging.info("Processing: {} {} remaining".format(bom_component_name, count))
+		
 		if bom_component_name in duplicate_check:
 			logging.warning("Skipping {} : Already processed".format(bom_component_name))
 		else:
@@ -121,7 +134,6 @@ def process_bom(hub,bom_components):
 			else:
 				licenses[license]['components'].append(bom_component_name)
 
-
 		#
 		# Grab origin info, file-level license info, and file-level copyright info
 		#
@@ -138,12 +150,16 @@ def process_bom(hub,bom_components):
 			info_to_get.extend([
 						("component-origin-copyrights", "component_origin_copyrights")
 					])
+
+			copyrightmanager = CopyrightManager(hub, bom_component_name, origin)
+
 			for link_t in info_to_get:
 				link_name = link_t[0]
 				k = link_t[1]
 				url = hub.get_link(origin_details, link_name)
-				copyrightmanager=CopyrightManager(hub,bom_component_name, origin)
-				copyright_list, rejected_copyrights=copyrightmanager.get_copyrights(unfiltered=args.not_filtered)
+			
+				# get processed copyrights
+				copyright_list, rejected_copyrights = copyrightmanager.get_copyrights(copyrightprocessor, unfiltered = args.not_filtered)
 				if 'externalId' in origin:
 					key=origin['externalId']
 				else:
@@ -156,8 +172,8 @@ def process_bom(hub,bom_components):
 					logging.debug("extending copyrights for key {} size {}".format(key,len(copyright_list)))
 					copyrights[bom_component_name][key]['copyrights'].extend(copyright_list)
 					copyrights[bom_component_name][key]['rejected'].extend(rejected_copyrights)
-			#	copyrightmanager.disable_all_copyrights()
-			#	copyrightmanager.delete_all_custom_copyrights()
+				#	copyrightmanager.disable_all_copyrights()
+				#	copyrightmanager.delete_all_custom_copyrights()
 
 
 
