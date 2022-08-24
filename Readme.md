@@ -56,6 +56,11 @@ optional arguments:
 -  -nf, --not_filtered - Don't perform any filtering
 -  -sr, --show_rejected - Show all lines that were processed for copyright but were  ultimately rejected
 -  -o \<filename\>, --output-text \<filename\>  - Output report as text
--  -oh \<filename\>, --output-html \<filename\> -  Output report as html
+-  -oh \<filename\>, --output-html \<filename\> - Output report as html
+-  -l 2 , --max_lines 2, - Maximum processed copyright lines: default 2
+-  -c all, --code_languages all - Specify which code fragments should be eliminated: csharp,cpp,java,js,shell,xml,sql
 
+TODO:
+Move postprocessing steps like copyright match filtering and duplicates elimination to CopyrightProcessor.
+Read code and license fragments from files which contain regular expressions and string replace patterns.
 
