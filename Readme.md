@@ -60,7 +60,11 @@ optional arguments:
 -  -l 2 , --max_lines 2, - Maximum processed copyright lines: default 2
 -  -c all, --code_languages all - Specify which code fragments should be eliminated: csharp,cpp,java,js,shell,xml,sql
 
-TODO:
-Move postprocessing steps like copyright match filtering and duplicates elimination to CopyrightProcessor.
-Read code and license fragments from files which contain regular expressions and string replace patterns.
+# TODO:
+* Move postprocessing steps like copyright match filtering and duplicates elimination to CopyrightProcessor.
+* Read code and license fragments from files which contain regular expressions and string replace patterns.
+
+# LIMITATIONS
+* Synchronous download of copyright and license information using hub.execute_get functions with >0.6s/call.
+
 
