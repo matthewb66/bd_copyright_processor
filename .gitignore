@@ -1,0 +1,13 @@
+
+# secrets
+.restconfig.json
+
+# IDE
+.vscode
+
+# generated files
+/__pycache__
+report*.txt
+report*.html
+report*.json
+profiler.txt
