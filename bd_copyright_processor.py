@@ -105,9 +105,9 @@ parser.add_argument("--blackduck_api_token", type=str,
 					help="Black Duck API token URL (can also be set as env. var. BLACKDUCK_API_TOKEN)", default="")
 parser.add_argument("--blackduck_trust_cert", help="BLACKDUCK trust cert", action='store_true')
 parser.add_argument("-d","--debug", action="store_true", help="Enable debug output")
-parser.add_argument("-f","--file")
-parser.add_argument("-nf","--not_filtered", action="store_true")
-parser.add_argument("-nd","--no_date", action="store_true",)
+# parser.add_argument("-f","--file")
+# parser.add_argument("-nf","--not_filtered", action="store_true")
+# parser.add_argument("-nd","--no_date", action="store_true",)
 parser.add_argument("-sr","--show_rejected", action="store_true",
 					help="Show all lines that were processed for copyright but ultimately rejected")
 parser.add_argument("-o","--output-text", help="Output report as text")
@@ -118,6 +118,8 @@ parser.add_argument("--save_json",
 parser.add_argument("--use_json", help="Store the query made to the database, use option --use_json to re-use data. "
 									  "This option is for re-running the script offline to improve results")
 # parser.add_argument("-r","--recursive", action="store_true", help="Process projects in projects")
+parser.add_argument("--max_copyrights", type=int,
+					help="Number of copyrights per component to fetch (default 1000)", default=1000)
 
 #parser.add_argument("-c", "--copyright_info", action="store_true", help="Include copyright info from the Black Duck KB for (KB) components in the BOM")
 
@@ -205,11 +207,11 @@ copyrights = {}
 duplicate_check = {}
 
 
-def process_bom(bd, bom_components):
+def process_bom(bd, bom_components, count_copyrights):
 	logging.info("Processing {} bom entries ...".format(len(bom_components)))
 
 	logging.info("Downloading Async data ...")
-	all_copyrights = asyncdata.get_data_async(bd, bom_components, args.blackduck_trust_cert)
+	all_copyrights = asyncdata.get_data_async(bd, bom_components, args.blackduck_trust_cert, count_copyrights)
 
 	componentlist = ComponentList()
 	componentlist.process_bom(bd, bom_components, all_copyrights)
@@ -277,7 +279,7 @@ if args.use_json:
 	with open(args.use_json) as f:
 		all_origin_info = json.load(f)
 else:
-	complist = process_bom(bd, bom_components)
+	complist = process_bom(bd, bom_components, args.max_copyrights)
 	if args.output_html:
 		with open(args.output_html, "w", encoding="UTF-8") as html:
 			logging.info("Writing html output to:{}".format(args.output_html))

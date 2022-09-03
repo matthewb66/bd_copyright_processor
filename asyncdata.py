@@ -3,14 +3,14 @@ import asyncio
 import platform
 
 
-def get_data_async(bd, comps, trustcert):
+def get_data_async(bd, comps, trustcert, count_copyrights):
     if platform.system() == "Windows":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-    return asyncio.run(async_main(bd, comps, trustcert))
+    return asyncio.run(async_main(bd, comps, trustcert, count_copyrights))
 
 
-async def async_main(bd, comps, trustcert):
+async def async_main(bd, comps, trustcert, count_copyrights):
     token = bd.session.auth.bearer_token
 
     async with aiohttp.ClientSession() as session:
@@ -29,8 +29,13 @@ async def async_main(bd, comps, trustcert):
             if 'origins' in comp:
                 for orig in comp['origins']:
                     orig_url = orig['origin']
+                    index = 1
+                    while (index * 1000)
                     copyright_task = asyncio.ensure_future(async_get_copyrights(session, token, orig_url,
-                                                                                not trustcert))
+                                                                                not trustcert, 1))
+                    copyright_tasks.append(copyright_task)
+                    copyright_task = asyncio.ensure_future(async_get_copyrights(session, token, orig_url,
+                                                                                not trustcert, 2))
                     copyright_tasks.append(copyright_task)
 
             # comment_task = asyncio.ensure_future(async_get_comments(session, comp, token))
@@ -59,16 +64,28 @@ async def async_main(bd, comps, trustcert):
         await asyncio.sleep(0.250)
         print(f'Got {count} component data elements')
 
-    return all_copyrights
+    # Merge copyrights by page
+    merged_copyrights = {}
+    for key, entry in all_copyrights.items():
+        if len(entry) > 0:
+            arr = key.split('%')
+            newkey = arr[0]
+            if newkey in merged_copyrights:
+                merged_copyrights[newkey].extend(entry)
+            else:
+                merged_copyrights[newkey] = entry
+
+    return merged_copyrights
 
 
-async def async_get_copyrights(session, token, origurl, verify=True):
+async def async_get_copyrights(session, token, origurl, verify=True, page=1):
     if not verify:
         ssl = False
     else:
         ssl = None
 
-    thishref = origurl + '/copyrights?limit=1000'
+    offset = (page - 1) * 1000
+    thishref = origurl + f'/copyrights?limit=1000&offset={offset}'
     # ToDo: manage pagination of more than 1000 copyrights
     headers = {
         # 'accept': "application/vnd.blackducksoftware.bill-of-materials-6+json",
@@ -77,7 +94,7 @@ async def async_get_copyrights(session, token, origurl, verify=True):
     # resp = globals.bd.get_json(thishref, headers=headers)
     async with session.get(thishref, headers=headers, ssl=ssl) as resp:
         result_data = await resp.json()
-    return origurl, result_data['items']
+    return f'{origurl}%{page}', result_data['items']
 
 
 # async def async_get_comments(session, comp, token):
