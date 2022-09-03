@@ -1,7 +1,8 @@
 # from blackduck.HubRestApi import HubInstance
 import regex
 import html2text
-import itertools, sys
+import itertools
+import sys
 import logging
 
 
@@ -39,15 +40,29 @@ class CopyrightManager:
     #     url = self.hub.get_link(self.origin, "component-origin-copyrights")
     #     response = self.hub.execute_put(url, data=self.copyrights)
 
-    def output_copyrights(self):
+    def output_copyrights_text(self):
         output_string = f"Component: {self.component_name}\n"
 
         if self.final_copyrights is None or len(self.final_copyrights) == 0:
-            output_string += "   No Copyrights found\n"
+            output_string += "  No Copyrights found\n"
         else:
             output_string += "Copyrights:\n"
             for copyright in self.final_copyrights:
-                output_string += "  " + copyright + "\n"
+                output_string += f"{copyright}\n"
+        return output_string
+
+    def output_copyrights_html(self):
+        output_string = f"<h2>Component: {self.component_name}</h2>\n"
+
+        if self.final_copyrights is None or len(self.final_copyrights) == 0:
+            output_string += "<ul><li>No Copyrights found</li></ul>\n"
+        else:
+            output_string += "<h3>Copyrights:</h3>\n<ul>"
+            for copyright in self.final_copyrights:
+                output_string += f"<li>{copyright}</li>\n"
+
+            output_string += "</ul>"
+
         return output_string
 
     # def delete_all_custom_copyrights(self, source='CUSTOM'):
@@ -373,7 +388,7 @@ class CopyrightManager:
                 logging.debug("raw copyright:" + copyright_entry['updatedCopyright'])
                 self.final_copyrights.append(copyright_entry['updatedCopyright'])
 
-        return
+        return len(self.copyrights), len(self.final_copyrights)
 
 
 class ComponentList:
@@ -385,9 +400,14 @@ class ComponentList:
     def add(self, compname, copyrightmgr):
         self.components_dict[compname] = copyrightmgr
 
+    def count(self):
+        return len(self.components_dict)
+
     def process_bom(self, bd, bom_components, all_copyrights):
         count = len(bom_components)
         logging.info("Processing BOM components ...")
+        orig_copyright_count = 0
+        processed_copyright_count = 0
         for compurl, bom_component in bom_components.items():
 
             if 'componentVersionName' in bom_component:
@@ -404,20 +424,6 @@ class ComponentList:
                 logging.warning(f"Skipping {bom_component_name} : Already processed")
                 continue
 
-            # MRB - removed license reporting
-            # component_licenses = hub.get_license_info_for_bom_component(bom_component)
-            #
-            #
-            # logging.debug("component_licenses: {}".format(component_licenses))
-            # for license in component_licenses.keys():
-            # 	license_by_component[bom_component_name] = license
-            # 	if not license in licenses:
-            # 		licenses[license]={'components' : [bom_component_name], 'text' : component_licenses[license]['license_text_info']}
-            #
-            # 	else:
-            # 		licenses[license]['components'].append(bom_component_name)
-            #
-
             copyrightmanager = None
             if 'origins' in bom_component:
                 for origin in bom_component['origins']:
@@ -431,37 +437,50 @@ class ComponentList:
                             copyrightmanager = CopyrightManager(bd, bom_component_name, origcopyrights)
                         else:
                             copyrightmanager.add_copyrights(origcopyrights)
+                        orig_copyright_count += len(origcopyrights)
 
-            copyright_list = []
-            rejected_copyrights = []
+            # copyright_list = []
+            # rejected_copyrights = []
+            processed_copyright_count = 0
             if copyrightmanager is not None:
-                copyrightmanager.process_copyrights()
+                numorig, numfinal = copyrightmanager.process_copyrights()
+                orig_copyright_count += numorig
+                processed_copyright_count += numfinal
+
                 self.add(bom_component_name, copyrightmanager)
 
-            # copyright_list, rejected_copyrights = copyrightmanager.process_copyrights(unfiltered=args.not_filtered)
-            #
-        # if 'externalId' in origin:
-        # 	key = origin['externalId']
-        # else:
-        # 	key = origin['name']
-        #
-        # if key not in copyrights:
-        # 	logging.debug("Adding new copyrights for key {} size {}".format(key, len(copyright_list)))
-        # 	copyrights.update({bom_component_name: {key: {'copyrights': copyright_list, 'rejected':
-        # 		rejected_copyrights } }})
-        # else:
-        # 	logging.debug("extending copyrights for key {} size {}".format(key, len(copyright_list)))
-        # 	copyrights[bom_component_name][key]['copyrights'].extend(copyright_list)
-        # 	copyrights[bom_component_name][key]['rejected'].extend(rejected_copyrights)
-        # 	#	copyrightmanager.disable_all_copyrights()
-        # 	#	copyrightmanager.delete_all_custom_copyrights()
+        return orig_copyright_count, processed_copyright_count
+
 
     def generate_text_report(self, project, version):
         output_string = "\n" + project + " " + version + "\n================================\n"
         for compname, copyrightmgr in self.components_dict.items():
-            output_string += '\n' + copyrightmgr.output_copyrights()
+            output_string += '\n' + copyrightmgr.output_copyrights_text()
             # if args.show_rejected:
             #     for copyright in copyrights[component][origin]['rejected']:
             #         output_string = output_string + "  REJECTED: " + copyright + "\n"
 
         return output_string
+
+    def generate_html_report(self, project, version):
+        output=f"""
+            <!doctype html>
+            <html lang="en">
+            <head>
+              <meta charset="utf-8">
+              <title>Copyright Report</title>
+              <meta name="description" content="Copyright Report">
+              <meta name="author" content="BlackDuck">
+            </head>
+            <body>
+            <h1>Project: {project} Version: {version}<h1>
+            """
+
+        for compname, copyrightmgr in self.components_dict.items():
+            output += copyrightmgr.output_copyrights_html()
+
+        output = output + """
+        </body>
+        </html>	
+        """
+        return output

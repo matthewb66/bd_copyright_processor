@@ -1,4 +1,4 @@
-# Notices Report Generator
+# Copyright Processor - Async version
 
 ## Installation
 
@@ -7,45 +7,46 @@ Clone the repo from git hub and install the dependencies listed in the requireme
 python3 -m pip install -r requirements.txt
 ```
 
-Create a new file called .restconfig.json in the directory where the script is cloned to. Here are templates depending on whether you are using a username password or API token:
-```
-{  
- "baseurl": "https://hub-hostname",
- "username": "<username goes here>",
- "password": "<password goes here>",
- "insecure": true,
- "debug": false
- }
-```
-Or
-```
-{  
- "baseurl": "https://hub-hostname",
- "api_token": "<API token goes here>",
- "insecure": true,
- "debug": false
-}
- ```
-Replace the URL with the url of your BlackDuck instance and add your credentials.
-
 ## Usage
 
-usage: Generate notice report with filtered copyright information
+    usage: bd_copyright_procssor [-h] [--blackduck_url BLACKDUCK_URL]
+                                 [--blackduck_api_token BLACKDUCK_API_TOKEN]
+                                 [--blackduck_trust_cert] [-d] [-sr]
+                                 [-o OUTPUT_TEXT] [-oh OUTPUT_HTML]
+                                 [--save_json SAVE_JSON] [--use_json USE_JSON]
+                                 project version
+    
+    Description: Generate filtered copyrights
+    
+    Required arguments:
+      -o outputfile         Output file in text format OR
+      -oh htmlfile          Output file in text format
+      project               The name of the project in Blackduck
+      version               The name of the version in Blackduck
+    
+    optional arguments:
+      -h, --help            show this help message and exit
+      --blackduck_url BLACKDUCK_URL
+                            Black Duck server URL (can also be set as env-var
+                            BLACKDUCK_URL)
+      --blackduck_api_token BLACKDUCK_API_TOKEN
+                            Black Duck API token URL (can also be set as env-var
+                            BLACKDUCK_API_TOKEN)
+      --blackduck_trust_cert
+                            BLACKDUCK trust cert
+      -d, --debug           Enable debug output
+      -sr, --show_rejected  Show all lines that were processed for copyright but
+                            ultimately rejected
+      --save_json SAVE_JSON
+                            Store the query made to the database, use option
+                            --use_json to re-use data. This option is for re-
+                            running the script offline to improve results
+      --use_json USE_JSON   Store the query made to the database, use option
+                            --use_json to re-use data. This option is for re-
+                            running the script offline to improve results
 
-       generate_notices_report.py 
-       [-h] [-d] [-nf] [-nd] [-sr] [-o OUTPUT_TEXT]
-       [-oh OUTPUT_HTML]   project_name version
+## Proxy Support
 
-positional arguments:
--  project_name - The name of the project in Blackduck
--  version - The name of the version in Blackduck
+Set the environment variable HTTPS_PROXY with the proxy server URL and port, for example:
 
-optional arguments:
--  -h, --help -            show this help message and exit
--  -d, --debug -           Enable debug output
--  -nf, --not_filtered - Don't perform any filtering
--  -sr, --show_rejected - Show all lines that were processed for copyright but were  ultimately rejected
--  -o \<filename\>, --output-text \<filename\>  - Output report as text
--  -oh \<filename\>, --output-html \<filename\> -  Output report as html
-
-
+    export HTTPS_PROXY=https://myproxy.net:8080

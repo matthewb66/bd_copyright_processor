@@ -1,72 +1,58 @@
 import aiohttp
 import asyncio
 import platform
+import logging
 
 
-def get_data_async(bd, comps, trustcert, count_copyrights):
+def get_data_async(bd, comps, trustcert):
     if platform.system() == "Windows":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-    return asyncio.run(async_main(bd, comps, trustcert, count_copyrights))
+    return asyncio.run(async_main(bd, comps, trustcert))
 
 
-async def async_main(bd, comps, trustcert, count_copyrights):
+async def async_main(bd, comps, trustcert):
     token = bd.session.auth.bearer_token
 
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession(trust_env=True) as session:
         copyright_tasks = []
-        # comment_tasks = []
-        # file_tasks = []
-        # lic_tasks = []
-        # url_tasks = []
-        # supplier_tasks = []
-        # child_tasks = []
-        count = 0
         for url, comp in comps.items():
-            # if config.args.debug:
-            #     print(comp['componentName'] + '/' + comp['componentVersionName'])
 
             if 'origins' in comp:
                 for orig in comp['origins']:
                     orig_url = orig['origin']
-                    index = 1
-                    while (index * 1000)
                     copyright_task = asyncio.ensure_future(async_get_copyrights(session, token, orig_url,
-                                                                                not trustcert, 1))
-                    copyright_tasks.append(copyright_task)
-                    copyright_task = asyncio.ensure_future(async_get_copyrights(session, token, orig_url,
-                                                                                not trustcert, 2))
+                                                                                not trustcert))
                     copyright_tasks.append(copyright_task)
 
-            # comment_task = asyncio.ensure_future(async_get_comments(session, comp, token))
-            # comment_tasks.append(comment_task)
-            #
-            # file_task = asyncio.ensure_future(async_get_files(session, comp, token))
-            # file_tasks.append(file_task)
-            #
-            # lic_task = asyncio.ensure_future(async_get_licenses(session, comp, token))
-            # lic_tasks.append(lic_task)
-            #
-            # url_task = asyncio.ensure_future(async_get_url(session, comp, token))
-            # url_tasks.append(url_task)
-            #
-            # supplier_task = asyncio.ensure_future(async_get_supplier(session, comp, token))
-            # supplier_tasks.append(supplier_task)
 
-        all_copyrights = dict(await asyncio.gather(*copyright_tasks))
-        # all_comments = dict(await asyncio.gather(*comment_tasks))
-        # all_files = dict(await asyncio.gather(*file_tasks))
-        # all_lics = dict(await asyncio.gather(*lic_tasks))
-        # all_urls = dict(await asyncio.gather(*url_tasks))
-        # all_suppliers = dict(await asyncio.gather(*supplier_tasks))
-
-        # all_children = dict(await asyncio.gather(*child_tasks))
+        copyrights = dict(await asyncio.gather(*copyright_tasks))
         await asyncio.sleep(0.250)
-        print(f'Got {count} component data elements')
+        count = len(copyrights)
+        logging.info(f'Downloaded copyrights for {count} components - page 1')
+
+        page = 2
+        while True:
+            copyright_tasks = []
+            for key, entry in copyrights.items():
+                if len(entry) > 999:
+                    arr = key.split('%')
+                    copyright_task = asyncio.ensure_future(async_get_copyrights(session, token, arr[0],
+                                                                                not trustcert, page))
+                    copyright_tasks.append(copyright_task)
+
+            if len(copyright_tasks) == 0:
+                break
+            page_copyrights = dict(await asyncio.gather(*copyright_tasks))
+            await asyncio.sleep(0.250)
+            count = len(page_copyrights)
+            logging.info(f'Downloaded copyrights for {count} components - page {page}')
+            copyrights.update(page_copyrights)
+            page += 1
 
     # Merge copyrights by page
     merged_copyrights = {}
-    for key, entry in all_copyrights.items():
+    for key, entry in copyrights.items():
         if len(entry) > 0:
             arr = key.split('%')
             newkey = arr[0]

@@ -9,10 +9,9 @@ import os
 # from blackduck.HubRestApi import HubInstance
 from blackduck import Client
 
-import html2text
-from copyrightmanager import CopyrightManager
+# import html2text
+# from copyrightmanager import CopyrightManager
 from copyrightmanager import ComponentList
-
 
 import asyncdata
 
@@ -96,32 +95,33 @@ logging.getLogger("urllib3").setLevel(logging.WARNING)
 logging.getLogger().setLevel(logging.INFO)
 
 
-parser = argparse.ArgumentParser("Generate notice report with filtered copyright information")
+parser = argparse.ArgumentParser("bd_copyright_procssor", description='Generate filtered copyrights')
 parser.add_argument("project", help="The name of the project in Blackduck")
 parser.add_argument("version", help="The name of the version in Blackduck")
 parser.add_argument("--blackduck_url", type=str,
-					help="Black Duck server URL (can also be set as env. var. BLACKDUCK_URL)", default="")
+					help="Black Duck server URL (can also be set as env-var BLACKDUCK_URL)", default="")
 parser.add_argument("--blackduck_api_token", type=str,
-					help="Black Duck API token URL (can also be set as env. var. BLACKDUCK_API_TOKEN)", default="")
+					help="Black Duck API token URL (can also be set as env-var BLACKDUCK_API_TOKEN)", default="")
 parser.add_argument("--blackduck_trust_cert", help="BLACKDUCK trust cert", action='store_true')
-parser.add_argument("-d","--debug", action="store_true", help="Enable debug output")
+parser.add_argument("-d", "--debug", action="store_true", help="Enable debug output")
 # parser.add_argument("-f","--file")
 # parser.add_argument("-nf","--not_filtered", action="store_true")
 # parser.add_argument("-nd","--no_date", action="store_true",)
-parser.add_argument("-sr","--show_rejected", action="store_true",
+parser.add_argument("-sr", "--show_rejected", action="store_true",
 					help="Show all lines that were processed for copyright but ultimately rejected")
-parser.add_argument("-o","--output-text", help="Output report as text")
-parser.add_argument("-oh","--output-html", help="Output report as html")
+parser.add_argument("-o", "--output-text", help="Output report as text")
+parser.add_argument("-oh", "--output-html", help="Output report as html")
 parser.add_argument("--save_json",
 					help="Store the query made to the database, use option --use_json to re-use data. This option is "
 						 "for re-running the script offline to improve results")
 parser.add_argument("--use_json", help="Store the query made to the database, use option --use_json to re-use data. "
 									  "This option is for re-running the script offline to improve results")
 # parser.add_argument("-r","--recursive", action="store_true", help="Process projects in projects")
-parser.add_argument("--max_copyrights", type=int,
-					help="Number of copyrights per component to fetch (default 1000)", default=1000)
+# parser.add_argument("--max_copyrights", type=int,
+# 					help="Number of copyrights per component to fetch (default 1000)", default=1000)
 
-#parser.add_argument("-c", "--copyright_info", action="store_true", help="Include copyright info from the Black Duck KB for (KB) components in the BOM")
+# parser.add_argument("-c", "--copyright_info", action="store_true", help="Include copyright info from the Black
+# Duck KB for (KB) components in the BOM")
 
 args = parser.parse_args()
 
@@ -194,7 +194,7 @@ logging.debug("bom_components: {}".format(bom_components))
 # 	bom_components.extend(new_components)
 
 if args.save_json:
-	with open(args.save_json, "w",encoding="utf-8") as f:
+	with open(args.save_json, "w", encoding="utf-8") as f:
 		json.dump(bom_components, f)
 
 
@@ -207,85 +207,89 @@ copyrights = {}
 duplicate_check = {}
 
 
-def process_bom(bd, bom_components, count_copyrights):
+def process_bom(bd, bom_components):
 	logging.info("Processing {} bom entries ...".format(len(bom_components)))
 
 	logging.info("Downloading Async data ...")
-	all_copyrights = asyncdata.get_data_async(bd, bom_components, args.blackduck_trust_cert, count_copyrights)
+	all_copyrights = asyncdata.get_data_async(bd, bom_components, args.blackduck_trust_cert)
 
 	componentlist = ComponentList()
-	componentlist.process_bom(bd, bom_components, all_copyrights)
+	orignum, finalnum = componentlist.process_bom(bd, bom_components, all_copyrights)
+	compcount = componentlist.count()
+	print(f"Processed {compcount} Components, {orignum} original copyrights, {finalnum} final copyrights")
 
 	return componentlist
 
 
-def generate_html_report():
-
-	output="""
-<!doctype html>
-
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-
-  <title>Notices Report</title>
-  <meta name="description" content="Notice Report">
-  <meta name="author" content="BlackDuck">
-</head>
-
-<body>
-<h1>{} {}<h1>
-""".format(args.project_name,args.version)
-
-	for component in duplicate_check.keys():
-		output = output + "<h2>{}</h2>".format(component)
-		# if component in license_by_component:
-		# 	output = output + "<h4>License: {}</h4>\n".format(license_by_component[component])
-		output = output + "<h4>Copyrights:</h4>\n"
-		if not component in copyrights:
-			output = output + "<p> No Copyrights found </p>\n"
-			continue
-		output = output + "<ul>"
-		for origin in copyrights[component]:
-
-			if not copyrights[component][origin]:
-				continue
-			for copyright in copyrights[component][origin]['copyrights']:
-				output=output+"<li>{}</li>\n".format(copyright)
-			if args.show_rejected:
-				for copyright in copyrights[component][origin]['rejected']:
-					output = output + "<li style=\"color:red;\">REJECTED: {}</li>\n".format(
-						html2text.html2text(copyright))
-
-			output = output + "</ul>"
-
-	# output=output+"<h1>Licenses</h1>"
-	# for license in licenses:
-	# 	output=output+"<h2>{}</h2>".format(license)
-	# 	output=output+"<h3>({})</h3>".format(','.join(licenses[license]['components']))
-	# 	output=output+"<pre>{}<pre>".format(licenses[license]['text'])
-
-
-	output = output + """
-	  <script src="js/scripts.js"></script>
-	</body>
-	</html>	
-	"""
-
-	return output
+# def generate_html_report():
+#
+# 	output="""
+# <!doctype html>
+#
+# <html lang="en">
+# <head>
+#   <meta charset="utf-8">
+#
+#   <title>Notices Report</title>
+#   <meta name="description" content="Notice Report">
+#   <meta name="author" content="BlackDuck">
+# </head>
+#
+# <body>
+# <h1>{} {}<h1>
+# """.format(args.project_name,args.version)
+#
+# 	for component in duplicate_check.keys():
+# 		output = output + "<h2>{}</h2>".format(component)
+# 		# if component in license_by_component:
+# 		# 	output = output + "<h4>License: {}</h4>\n".format(license_by_component[component])
+# 		output = output + "<h4>Copyrights:</h4>\n"
+# 		if not component in copyrights:
+# 			output = output + "<p> No Copyrights found </p>\n"
+# 			continue
+# 		output = output + "<ul>"
+# 		for origin in copyrights[component]:
+#
+# 			if not copyrights[component][origin]:
+# 				continue
+# 			for copyright in copyrights[component][origin]['copyrights']:
+# 				output=output+"<li>{}</li>\n".format(copyright)
+# 			# if args.show_rejected:
+# 			# 	for copyright in copyrights[component][origin]['rejected']:
+# 			# 		output = output + "<li style=\"color:red;\">REJECTED: {}</li>\n".format(
+# 			# 			html2text.html2text(copyright))
+#
+# 			output = output + "</ul>"
+#
+# 	# output=output+"<h1>Licenses</h1>"
+# 	# for license in licenses:
+# 	# 	output=output+"<h2>{}</h2>".format(license)
+# 	# 	output=output+"<h3>({})</h3>".format(','.join(licenses[license]['components']))
+# 	# 	output=output+"<pre>{}<pre>".format(licenses[license]['text'])
+#
+#
+# 	output = output + """
+# 	  <script src="js/scripts.js"></script>
+# 	</body>
+# 	</html>
+# 	"""
+#
+# 	return output
 
 
 if args.use_json:
 	with open(args.use_json) as f:
 		all_origin_info = json.load(f)
 else:
-	complist = process_bom(bd, bom_components, args.max_copyrights)
+	complist = process_bom(bd, bom_components)
 	if args.output_html:
 		with open(args.output_html, "w", encoding="UTF-8") as html:
 			logging.info("Writing html output to:{}".format(args.output_html))
-			html.write(complist.generate_html_report())
+			html.write(complist.generate_html_report(args.project, args.version))
+			print(f'Output file {args.output_html} created')
 
 	if args.output_text:
 		with open(args.output_text, "w", encoding="UTF-8") as text:
 			logging.info("Writing text output to:{}".format(args.output_text))
 			text.write(complist.generate_text_report(args.project, args.version))
+			print(f'Output file {args.output_text} created')
