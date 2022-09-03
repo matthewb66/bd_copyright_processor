@@ -215,8 +215,12 @@ def process_bom(bd, bom_components):
 
 	componentlist = ComponentList()
 	orignum, finalnum = componentlist.process_bom(bd, bom_components, all_copyrights)
-	compcount = componentlist.count()
-	print(f"Processed {compcount} Components, {orignum} original copyrights, {finalnum} final copyrights")
+	comps_with_copyrights = componentlist.count()
+	all_comp_count = len(bom_components)
+	print(f"Processed project {args.project} version {args.version}")
+	print(f"Component counts:\n- Total Components {all_comp_count}")
+	print(f"- Components with copyrights {comps_with_copyrights}")
+	print(f"Copyright counts:\n- Original copyrights {orignum}\n- Processed copyrights {finalnum}")
 
 	return componentlist
 
