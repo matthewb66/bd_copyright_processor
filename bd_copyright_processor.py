@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
-import json
+# import json
 import logging
 import sys
 import os
@@ -14,7 +14,7 @@ from blackduck import Client
 from copyrightmanager import ComponentList
 
 import asyncdata
-
+script_version = '1.0'
 
 def check_projver(bd, proj, ver):
 	params = {
@@ -95,7 +95,7 @@ logging.getLogger("urllib3").setLevel(logging.WARNING)
 logging.getLogger().setLevel(logging.INFO)
 
 
-parser = argparse.ArgumentParser("bd_copyright_procssor", description='Generate filtered copyrights')
+parser = argparse.ArgumentParser("bd_copyright_procssor", description='Description: Generate filtered copyrights')
 parser.add_argument("project", help="The name of the project in Blackduck")
 parser.add_argument("version", help="The name of the version in Blackduck")
 parser.add_argument("--blackduck_url", type=str,
@@ -107,15 +107,16 @@ parser.add_argument("-d", "--debug", action="store_true", help="Enable debug out
 # parser.add_argument("-f","--file")
 # parser.add_argument("-nf","--not_filtered", action="store_true")
 # parser.add_argument("-nd","--no_date", action="store_true",)
-parser.add_argument("-sr", "--show_rejected", action="store_true",
-					help="Show all lines that were processed for copyright but ultimately rejected")
+parser.add_argument("-s", "--show_orig", action="store_true",
+					help="Show all original copyrights as well as processed copyrights")
 parser.add_argument("-o", "--output-text", help="Output report as text")
 parser.add_argument("-oh", "--output-html", help="Output report as html")
-parser.add_argument("--save_json",
-					help="Store the query made to the database, use option --use_json to re-use data. This option is "
-						 "for re-running the script offline to improve results")
-parser.add_argument("--use_json", help="Store the query made to the database, use option --use_json to re-use data. "
-									  "This option is for re-running the script offline to improve results")
+parser.add_argument("-v", "--script_version", action="store_true", help="Print script version")
+# parser.add_argument("--save_json",
+# 					help="Store the query made to the database, use option --use_json to re-use data. This option is "
+# 						 "for re-running the script offline to improve results")
+# parser.add_argument("--use_json", help="Store the query made to the database, use option --use_json to re-use data. "
+# 									  "This option is for re-running the script offline to improve results")
 # parser.add_argument("-r","--recursive", action="store_true", help="Process projects in projects")
 # parser.add_argument("--max_copyrights", type=int,
 # 					help="Number of copyrights per component to fetch (default 1000)", default=1000)
@@ -130,8 +131,12 @@ if args.debug:
 	logging.getLogger("urllib3").setLevel(logging.DEBUG)
 	logging.getLogger().setLevel(logging.DEBUG)
 
+if args.script_version:
+	print(f'Script version {script_version}')
+	sys.exit(0)
+
 if not args.output_text and not args.output_html:
-	print("You must select either html (-oh)  or text (-o) output ")
+	print("You must specify either html (-oh|--output-html)  or text (-o|--output-text) output file")
 	parser.print_help()
 	sys.exit(1)
 
@@ -193,9 +198,9 @@ logging.debug("bom_components: {}".format(bom_components))
 # 					logging.debug("Number of components:"+str(len(new_components)))
 # 	bom_components.extend(new_components)
 
-if args.save_json:
-	with open(args.save_json, "w", encoding="utf-8") as f:
-		json.dump(bom_components, f)
+# if args.save_json:
+# 	with open(args.save_json, "w", encoding="utf-8") as f:
+# 		json.dump(bom_components, f)
 
 
 all_origins = dict()
@@ -214,13 +219,18 @@ def process_bom(bd, bom_components):
 	all_copyrights = asyncdata.get_data_async(bd, bom_components, args.blackduck_trust_cert)
 
 	componentlist = ComponentList()
-	orignum, finalnum = componentlist.process_bom(bd, bom_components, all_copyrights)
-	comps_with_copyrights = componentlist.count()
+	componentlist.process_bom(bd, bom_components, all_copyrights)
+
 	all_comp_count = len(bom_components)
+	comps_with_copyrights = componentlist.count_comps()
+	orig_copyright_count = componentlist.count_orig_copyrights()
+	final_copyright_count = componentlist.count_final_copyrights()
+
 	print(f"Processed project {args.project} version {args.version}")
 	print(f"Component counts:\n- Total Components {all_comp_count}")
 	print(f"- Components with copyrights {comps_with_copyrights}")
-	print(f"Copyright counts:\n- Original copyrights {orignum}\n- Processed copyrights {finalnum}")
+	print(f"Copyright counts:\n- Original copyrights {orig_copyright_count}")
+	print(f"- Processed copyrights {final_copyright_count}")
 
 	return componentlist
 
@@ -281,19 +291,20 @@ def process_bom(bd, bom_components):
 # 	return output
 
 
-if args.use_json:
-	with open(args.use_json) as f:
-		all_origin_info = json.load(f)
-else:
+# if args.use_json:
+# 	with open(args.use_json) as f:
+# 		all_origin_info = json.load(f)
+# else:
+if True:
 	complist = process_bom(bd, bom_components)
 	if args.output_html:
 		with open(args.output_html, "w", encoding="UTF-8") as html:
 			logging.info("Writing html output to:{}".format(args.output_html))
-			html.write(complist.generate_html_report(args.project, args.version))
+			html.write(complist.generate_html_report(args.project, args.version, args.show_orig))
 			print(f'Output file {args.output_html} created')
 
 	if args.output_text:
 		with open(args.output_text, "w", encoding="UTF-8") as text:
 			logging.info("Writing text output to:{}".format(args.output_text))
-			text.write(complist.generate_text_report(args.project, args.version))
+			text.write(complist.generate_text_report(args.project, args.version, args.show_orig))
 			print(f'Output file {args.output_text} created')

@@ -2,25 +2,24 @@
 
 ## Installation
 
-Clone the repo from git hub and install the dependencies listed in the requirements file
+Optionally create a python virtual environment.
+Clone the repo from GitHub and install the dependencies listed in the requirements file:
+
 ```
 python3 -m pip install -r requirements.txt
 ```
 
 ## Usage
 
-    usage: bd_copyright_procssor [-h] [--blackduck_url BLACKDUCK_URL]
+    usage: python3 bd_copyright_processor.py [-h] [--blackduck_url BLACKDUCK_URL]
                                  [--blackduck_api_token BLACKDUCK_API_TOKEN]
-                                 [--blackduck_trust_cert] [-d] [-sr]
-                                 [-o OUTPUT_TEXT] [-oh OUTPUT_HTML]
-                                 [--save_json SAVE_JSON] [--use_json USE_JSON]
+                                 [--blackduck_trust_cert] [-d] [-s]
+                                 [-o OUTPUT_TEXT] [-oh OUTPUT_HTML] [-v]
                                  project version
     
     Description: Generate filtered copyrights
     
-    Required arguments:
-      -o outputfile         Output file in text format OR
-      -oh htmlfile          Output file in text format
+    positional arguments:
       project               The name of the project in Blackduck
       version               The name of the version in Blackduck
     
@@ -35,15 +34,13 @@ python3 -m pip install -r requirements.txt
       --blackduck_trust_cert
                             BLACKDUCK trust cert
       -d, --debug           Enable debug output
-      -sr, --show_rejected  Show all lines that were processed for copyright but
-                            ultimately rejected
-      --save_json SAVE_JSON
-                            Store the query made to the database, use option
-                            --use_json to re-use data. This option is for re-
-                            running the script offline to improve results
-      --use_json USE_JSON   Store the query made to the database, use option
-                            --use_json to re-use data. This option is for re-
-                            running the script offline to improve results
+      -s, --show_orig       Show all original copyrights as well as processed
+                            copyrights
+      -o OUTPUT_TEXT_FILE, --output-text OUTPUT_TEXT_FILE
+                            Output report as text file
+      -oh OUTPUT_HTML_FILE, --output-html OUTPUT_HTML_FILE
+                            Output report as html file
+      -v, --version         Print script version
 
 ## Proxy Support
 
