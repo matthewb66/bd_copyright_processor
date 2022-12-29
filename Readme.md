@@ -4,20 +4,24 @@ Python script to process copyrights from a Black Duck project version and genera
 filtered copyrights.
 
 ## BACKGROUND
+Reporting accurate copyrights is challenging.
+
 There is no standard way to add copyright text to source files or packages, but most software licenses
 require copyrights to be reported when software is used in commercial releases.
 
 Many copyrights follow a general text format (for example 'Copyright 1999 My Name'), but there are multiple
-copyright identifiers ('(C)', '(c)', 'Copyright', '@author', '©' etc.) none of which are reserved
+copyright identifiers ('(C)', '(c)', 'Copyright', '@author', '©' etc.) which are not reserved
 and are frequently used within source code and other text apart from copyright definitions. Additionally, the
 copyright date string can comprise only a year, a year range, comma-delimited list of years, a full date or 
-multiple other formats. The copyright name component is free form potentially including URLs and other non-ASCII text
-of any size, often including copies of the software license text and unlimited size.
+multiple other formats. The copyright name string is free form potentially including URLs and other non-ASCII text
+of any size, often including copies of the software license text.
 
 Copyrights are not always scoped within comments as they can be in plain text within license files or elsewhere,
-and they can span multiple lines, making it difficult to know when a copyright ends.
+and they can span multiple lines. Additionally, copyrights in comments are often followed by other text in
+comment blocks, making it very difficult to know when a copyright ends.
 
-Black Duck identifies all potential copyright matches which it stores in the KnowledgeBase for each component.
+Black Duck identifies all potential copyright matches from software origins, which it stores in the KnowledgeBase 
+for each component.
 Filtering the list of copyrights when they are added to the KnowledgeBase would potentially cause some copyright text 
 to be missed, especially as the interpretation of which copyrights are legal and should be included varies by 
 local jurisdiction and source language of the project/files etc. 
@@ -47,7 +51,8 @@ python3 -m pip install -r requirements.txt
 You will need to provide the BLACKDUCK_URL and BLACKDUCK_API_TOKEN to connect to a Black Duck server and 
 specify a project and version for processing. Note that double quotes are required for names containing spaces.
 
-The script will ignore all copyrights without a date (use the `--notstrict` option to accept all copyrights).
+The script will ignore all copyrights without a date (use the `--notstrict` option to accept all copyrights, but
+note that this may cause some invalid copyrights to be output).
 
 It will look for code fragments in all source languages (use the `--code-languages XXX` option to specify specific
 languages to strip - available languages include `general,csharp,c,python,java,js,shell,xml,sql`).
