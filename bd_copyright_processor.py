@@ -15,7 +15,7 @@ from componentlist import ComponentList
 from copyrightprocessor import CopyrightProcessor
 
 import asyncdata
-script_version = '1.0'
+script_version = '2.1'
 
 
 def check_projver(bd, proj, ver):
@@ -116,7 +116,7 @@ parser.add_argument("-oh", "--output-html", help="Output report as html")
 parser.add_argument("-l", "--max_lines", default=2, help="Maximum processed copyright lines")
 parser.add_argument("-c", "--code_languages", default="all",
 					help="Specify which code fragments should be removed (optional): csharp,c,python,java,js,shell,xml,sql")
-parser.add_argument("-s", "--strict", action="store_true", help="Ignore copyright text which does not contain a year")
+parser.add_argument("-n", "--notstrict", action="store_true", help="Include copyright text which does not contain a year or date")
 parser.add_argument("-v", "--script_version", action="store_true", help="Print script version")
 # parser.add_argument("-r","--recursive", action="store_true", help="Process projects in projects")
 
@@ -217,7 +217,7 @@ def process_bom(bd, bom_components):
 	copyrightprocessor = CopyrightProcessor(args.code_languages.split(','), int(args.max_lines))
 
 	componentlist = ComponentList()
-	componentlist.process_bom(bd, bom_components, all_copyrights, copyrightprocessor, args.strict)
+	componentlist.process_bom(bd, bom_components, all_copyrights, copyrightprocessor, args.notstrict)
 
 	all_comp_count = len(bom_components)
 	ignored_comps = componentlist.count_ignored_comps()
@@ -230,10 +230,10 @@ def process_bom(bd, bom_components):
 	print(f"Processed project {args.project} version {args.version}")
 	print(f"Component counts:\n- Total Components {all_comp_count}")
 	print(f"- Ignored Components {ignored_comps}")
-	print(f"- Processed Components with copyrights {comps_with_copyrights}")
-	print(f"Copyright counts:\n- Total copyrights {total_copyright_count}")
-	print(f"- Active copyrights {active_copyright_count}")
-	print(f"- Output copyrights {final_copyright_count}")
+	print(f"- Components with Copyrights {comps_with_copyrights}")
+	print(f"Copyright counts:\n- Total Original Copyrights {total_copyright_count}")
+	print(f"- Active Original Copyrights {active_copyright_count}")
+	print(f"- Output Copyrights {final_copyright_count}")
 
 	return componentlist
 

@@ -40,7 +40,7 @@ class ComponentList:
             count += copyrightmgr.count_final_copyrights()
         return count
 
-    def process_bom(self, bd, bom_components, all_copyrights, cprocessor, strict):
+    def process_bom(self, bd, bom_components, all_copyrights, cprocessor, notstrict):
         logging.info("Processing BOM components ...")
         for compurl, bom_component in bom_components.items():
 
@@ -72,7 +72,7 @@ class ComponentList:
                         origcopyrights = all_copyrights[origin['origin']]
                     if len(origcopyrights) > 0:
                         if copyrightmanager is None:
-                            copyrightmanager = CopyrightManager(bd, bom_component_name, origcopyrights, strict)
+                            copyrightmanager = CopyrightManager(bd, bom_component_name, origcopyrights, notstrict)
                         else:
                             copyrightmanager.add_copyrights(origcopyrights)
 

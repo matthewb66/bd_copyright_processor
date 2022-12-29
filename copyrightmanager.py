@@ -17,7 +17,7 @@ class CopyrightManager:
     # final_copyrights = []
     # rejected_matches = []
 
-    def __init__(self, hub, component_name, copyrights, strict):
+    def __init__(self, hub, component_name, copyrights, notstrict):
         self.hub = hub
         self.component_name = component_name
         self.copyrights = []
@@ -27,7 +27,7 @@ class CopyrightManager:
         self.origin = None
         self.final_copyrights = []
         # self.rejected_matches = []
-        self.strict = strict
+        self.notstrict = notstrict
 
         self.add_copyrights(copyrights)
 
@@ -149,7 +149,7 @@ class CopyrightManager:
                           regex.IGNORECASE))
         check_blank.append(
             regex.compile(r'\(C\)\s*$', regex.IGNORECASE))
-        if self.strict:
+        if not self.notstrict:
             # Ignore copyrights with no date
             check_blank.append(
                 regex.compile(r'\(C\)\s*\D*$',

@@ -45,7 +45,7 @@ python3 -m pip install -r requirements.txt
       -c CODE_LANGUAGES, --code_languages CODE_LANGUAGES
                             Specify which code fragments should be removed:
                             Select from 'general,csharp,c,python,java,js,shell,xml,sql' - default is all
-      -s, --strict          Ignore copyright text which does not contain a year/date
+      -n, --notstrict       Include copyright text which does not contain a year or date
       -v, --version         Print script version
 
 ## Proxy Support

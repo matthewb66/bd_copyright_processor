@@ -33,7 +33,7 @@ class CopyrightProcessor:
 
         code_dict['java'] = []
         code_dict['java'].append(r"@(\bDeprecated\b|\bSuppressWarnings\b|\bversion\b|\bparam\b).*")  # Java attributions
-        code_dict['java'].append(r"\bpackage\b.*")  # Java packages
+        code_dict['java'].append(r"(\bpackage\b|\$Id).*")  # Java packages
 
         code_dict['js'] = []
         code_dict['js'].append(r"(\bstatic\b|\bpublic\b|\bprotected\b|\bprivate\b|\bclass\b|\binterface\b).*")  # JavaScript
