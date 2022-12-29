@@ -3,4 +3,5 @@ blackduck
 html2text
 aiohttp
 asyncio
+unidecode
 

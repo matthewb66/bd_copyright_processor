@@ -11,10 +11,12 @@ from blackduck import Client
 
 # import html2text
 # from copyrightmanager import CopyrightManager
-from copyrightmanager import ComponentList
+from componentlist import ComponentList
+from copyrightprocessor import CopyrightProcessor
 
 import asyncdata
 script_version = '1.0'
+
 
 def check_projver(bd, proj, ver):
 	params = {
@@ -90,9 +92,9 @@ def get_all_projects(bd):
 
 
 logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s', stream=sys.stderr, level=logging.DEBUG)
+logging.getLogger().setLevel(logging.INFO)
 logging.getLogger("requests").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
-logging.getLogger().setLevel(logging.INFO)
 
 
 parser = argparse.ArgumentParser("bd_copyright_procssor", description='Description: Generate filtered copyrights')
@@ -107,22 +109,16 @@ parser.add_argument("-d", "--debug", action="store_true", help="Enable debug out
 # parser.add_argument("-f","--file")
 # parser.add_argument("-nf","--not_filtered", action="store_true")
 # parser.add_argument("-nd","--no_date", action="store_true",)
-parser.add_argument("-s", "--show_orig", action="store_true",
+parser.add_argument("-so", "--show_orig", action="store_true",
 					help="Show all original copyrights as well as processed copyrights")
 parser.add_argument("-o", "--output-text", help="Output report as text")
 parser.add_argument("-oh", "--output-html", help="Output report as html")
+parser.add_argument("-l", "--max_lines", default=2, help="Maximum processed copyright lines")
+parser.add_argument("-c", "--code_languages", default="all",
+					help="Specify which code fragments should be removed (optional): csharp,c,python,java,js,shell,xml,sql")
+parser.add_argument("-s", "--strict", action="store_true", help="Ignore copyright text which does not contain a year")
 parser.add_argument("-v", "--script_version", action="store_true", help="Print script version")
-# parser.add_argument("--save_json",
-# 					help="Store the query made to the database, use option --use_json to re-use data. This option is "
-# 						 "for re-running the script offline to improve results")
-# parser.add_argument("--use_json", help="Store the query made to the database, use option --use_json to re-use data. "
-# 									  "This option is for re-running the script offline to improve results")
 # parser.add_argument("-r","--recursive", action="store_true", help="Process projects in projects")
-# parser.add_argument("--max_copyrights", type=int,
-# 					help="Number of copyrights per component to fetch (default 1000)", default=1000)
-
-# parser.add_argument("-c", "--copyright_info", action="store_true", help="Include copyright info from the Black
-# Duck KB for (KB) components in the BOM")
 
 args = parser.parse_args()
 
@@ -172,14 +168,14 @@ bd = Client(
 # 	print('Getting all projects for recursive processing ...')
 # 	projlist = get_all_projects(bd)
 
-logging.info("Requesting bom from hub")
+# logging.info("Requesting bom from hub")
 # hub = HubInstance()
 # project = hub.get_project_by_name(args.project_name)
 # version = hub.get_version_by_name(project, args.version)
 project, version = check_projver(bd, args.project, args.version)
 
 bom_components = get_bom_components(bd, version)
-logging.debug("bom_components: {}".format(bom_components))
+# logging.debug("bom_components: {}".format(bom_components))
 
 # PROCESS SUB-PROJECTS
 # if not args.use_json:
@@ -218,19 +214,26 @@ def process_bom(bd, bom_components):
 	logging.info("Downloading Async data ...")
 	all_copyrights = asyncdata.get_data_async(bd, bom_components, args.blackduck_trust_cert)
 
+	copyrightprocessor = CopyrightProcessor(args.code_languages.split(','), int(args.max_lines))
+
 	componentlist = ComponentList()
-	componentlist.process_bom(bd, bom_components, all_copyrights)
+	componentlist.process_bom(bd, bom_components, all_copyrights, copyrightprocessor, args.strict)
 
 	all_comp_count = len(bom_components)
+	ignored_comps = componentlist.count_ignored_comps()
 	comps_with_copyrights = componentlist.count_comps()
-	orig_copyright_count = componentlist.count_orig_copyrights()
+	active_copyright_count = componentlist.count_active_copyrights()
+	inactive_copyright_count = componentlist.count_inactive_copyrights()
+	total_copyright_count = active_copyright_count + inactive_copyright_count
 	final_copyright_count = componentlist.count_final_copyrights()
 
 	print(f"Processed project {args.project} version {args.version}")
 	print(f"Component counts:\n- Total Components {all_comp_count}")
-	print(f"- Components with copyrights {comps_with_copyrights}")
-	print(f"Copyright counts:\n- Original copyrights {orig_copyright_count}")
-	print(f"- Processed copyrights {final_copyright_count}")
+	print(f"- Ignored Components {ignored_comps}")
+	print(f"- Processed Components with copyrights {comps_with_copyrights}")
+	print(f"Copyright counts:\n- Total copyrights {total_copyright_count}")
+	print(f"- Active copyrights {active_copyright_count}")
+	print(f"- Output copyrights {final_copyright_count}")
 
 	return componentlist
 
@@ -295,6 +298,7 @@ def process_bom(bd, bom_components):
 # 	with open(args.use_json) as f:
 # 		all_origin_info = json.load(f)
 # else:
+
 if True:
 	complist = process_bom(bd, bom_components)
 	if args.output_html:

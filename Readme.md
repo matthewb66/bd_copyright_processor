@@ -13,15 +13,15 @@ python3 -m pip install -r requirements.txt
 
     usage: python3 bd_copyright_processor.py [-h] [--blackduck_url BLACKDUCK_URL]
                                  [--blackduck_api_token BLACKDUCK_API_TOKEN]
-                                 [--blackduck_trust_cert] [-d] [-s]
-                                 [-o OUTPUT_TEXT] [-oh OUTPUT_HTML] [-v]
+                                 [--blackduck_trust_cert] [-d] [-os]
+                                 [-o OUTPUT_TEXT] [-oh OUTPUT_HTML] [-l] [-c] [-s] [-v]
                                  project version
     
     Description: Generate filtered copyrights
     
     positional arguments:
       project               The name of the project in Blackduck
-      version               The name of the version in Blackduck
+      version               The name of the project version in Blackduck
     
     optional arguments:
       -h, --help            show this help message and exit
@@ -40,6 +40,12 @@ python3 -m pip install -r requirements.txt
                             Output report as text file
       -oh OUTPUT_HTML_FILE, --output-html OUTPUT_HTML_FILE
                             Output report as html file
+      -l MAX_LINES, --max_lines MAX_LINES
+                            Maximum processed copyright lines
+      -c CODE_LANGUAGES, --code_languages CODE_LANGUAGES
+                            Specify which code fragments should be removed:
+                            Select from 'general,csharp,c,python,java,js,shell,xml,sql' - default is all
+      -s, --strict          Ignore copyright text which does not contain a year/date
       -v, --version         Print script version
 
 ## Proxy Support

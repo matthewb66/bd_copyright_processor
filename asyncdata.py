@@ -18,6 +18,9 @@ async def async_main(bd, comps, trustcert):
         copyright_tasks = []
         for url, comp in comps.items():
 
+            if comp['ignored']:
+                continue
+
             if 'origins' in comp:
                 for orig in comp['origins']:
                     orig_url = orig['origin']
