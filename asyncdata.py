@@ -50,6 +50,12 @@ async def async_main(bd, comps, trustcert):
             await asyncio.sleep(0.250)
             count = len(page_copyrights)
             logging.info(f'Downloaded copyrights for {count} components - page {page}')
+            totalreturned = 0
+            for key, item in page_copyrights.items():
+                totalreturned += len(item)
+            print(totalreturned)
+            if totalreturned == 0:
+                break
             copyrights.update(page_copyrights)
             page += 1
 
