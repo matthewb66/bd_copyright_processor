@@ -1,9 +1,10 @@
-from blackduck.HubRestApi import HubInstance
-import regex
-import html2text
-import unicodedata, itertools, sys
-import logging
+#!/
 
+from blackduck.HubRestApi import HubInstance
+import logging
+import regex
+from copyrightprocessor import CopyrightProcessor
+    
 class CopyrightManager:
     """Manage copyrights for a BOM component"""
     component_name = ""
@@ -20,10 +21,29 @@ class CopyrightManager:
         self.load_copyrights()
 
     def load_copyrights(self):
-        url = self.hub.get_link(self.origin, "component-origin-copyrights")
-        url = url + "?limit=1000"
-        self.copyrights = self.hub.execute_get(url).json().get('items', [])
-        logging.debug("length {}".format(len(self.copyrights)))
+        limit = 1000
+        offset = 0
+        self.copyrights = None
+
+        # do while loaded != 0
+        while True:
+            url = self.hub.get_link(self.origin, "component-origin-copyrights")
+            url = url + "?limit="+str(limit)+"&offset="+str(offset)
+            rsp = self.hub.execute_get(url).json().get('items', [])
+            if (len(rsp) == 0):
+                break
+
+            if (self.copyrights == None):
+                self.copyrights = rsp
+            else:
+                self.copyrights.extend(rsp)
+
+            logging.info("Total copyrights {}, currently loaded {}".format(len(self.copyrights), len(rsp)))
+
+            if (len(rsp) < limit):
+                break
+            else:
+                offset += len(rsp)
 
     def disable_all_copyrights(self, source='KB'):
         for copyright in self.copyrights:
@@ -52,113 +72,25 @@ class CopyrightManager:
     #     return
 
 
-
-
-
-    def remove_control_chars(self, s):
-        all_chars = (chr(i) for i in range(sys.maxunicode))
-        categories = {'Cc'}
-        control_chars = ''.join(map(chr, itertools.chain(range(0x00, 0x20), range(0x7f, 0xa0))))
-
-        control_char_regex = regex.compile('[%s]' % regex.escape(control_chars))
-
-        return control_char_regex.sub(' ', s)
-
-    def preprocess_copyrights(self):
+    def preprocess_copyrights(self, cprocessor):
         """ Process raw copyrights to remove unnecessary text"""
+
         processed_copyrights = []
         for copyright_entry in self.copyrights:
 
-            logging.debug("raw copyright:" + copyright_entry['updatedCopyright'])
+            logging.debug("raw copyright: " + copyright_entry['updatedCopyright'])
             if not copyright_entry['active']:
                 continue
 
-            logging.debug("raw copyright:"+copyright_entry['updatedCopyright'])
-            # Remove copyright symbols and replace with "(C)"
-            copyright_text = copyright_entry['updatedCopyright'].replace("&copy", "(C)").replace("&#169;", "(C)")
-
-
-            # Convert any html to text
-            copyright_text = html2text.html2text(copyright_text)
-
-            # Remove any non unicode characters
-            copyright_text = self.remove_control_chars(copyright_text)
-
-            # Remove new lines
-            copyright_text = copyright_text.replace("\r\n", " ").replace("\n", " ")  # Remove all newlines
-            copyright_text = copyright_text.replace("\\n", " ") # Remove all "newlines"
-
-            # Remove comments delimiters
-            copyright_text = copyright_text.replace("-->", "").replace("<!--", "")  # XML
-            copyright_text = copyright_text.replace("// ", "").replace(" //", "").replace("/*", "").replace("*/",
-                                                                                                  "")  # Remove comments (C-like)
-            copyright_text = copyright_text.replace("#", "")  # Remove comments (Shell)
-            copyright_text = copyright_text.replace("rem ", "")  # Batch scripts?
-
-            # Remove < > and [ ] , typically used around mail and urls e.g. <fred@flintstones.com>
-            copyright_text = copyright_text.replace("<", "").replace(">", "")
-            copyright_text = copyright_text.replace("[", " ").replace("]", " ")
-
-            # Remove * and ~ , this often comes from comments where there is a box of asterisks like this:
-            # **************
-            # * box of text
-            # **************
-            copyright_text = copyright_text.replace("*"," ")
-            copyright_text = copyright_text.replace("~ ~","")
-
-            # Remove ============= , happens Often used to delineate text. i.e:
-            # ===================================
-            # copyright (C) 2020 Rob Haines
-            copyright_text = regex.sub("======.*", "", copyright_text, flags=regex.IGNORECASE)
-
-            # Clean up whitespace
-            copyright_text = copyright_text.strip()
-            copyright_text = regex.sub("\s+", " ", copyright_text)  # Reduce Multiple spaces to single spaces to improve merge
-
-
-            # Remove "all rights reserved". Need to check if this is OK? Possibly add it back again after merging?
-            copyright_text = regex.sub("All rights Reserved.*", "", copyright_text, flags=regex.IGNORECASE)
-
-
-            # Licence Cleanup - Where copyright is part of a license, e.g.
-            # copyright (C) 2020 Rob Haines. This library is free software ....
-            copyright_text = regex.sub("This library is free software.*", "", copyright_text,
-                                  flags=regex.IGNORECASE)
-            copyright_text = regex.sub("under the terms of.*", "", copyright_text, flags=regex.IGNORECASE)
-            copyright_text = regex.sub("Licensed under.*", "", copyright_text, flags=regex.IGNORECASE)
-            copyright_text = regex.sub("Released under.*", "", copyright_text, flags=regex.IGNORECASE)
-            copyright_text = regex.sub("Permission is hereby.*", "", copyright_text, flags=regex.IGNORECASE)
-            copyright_text = regex.sub("This product includes software.*", "", copyright_text,
-                                  flags=regex.IGNORECASE)  # Seems to be common in apache
-            copyright_text = regex.sub("The .* licenses this file.*", "", copyright_text,
-                                  flags=regex.IGNORECASE)  # Seems to be common in apache code
-            copyright_text = regex.sub("Verbatim copying and distribution.*", "", copyright_text,
-                                  flags=regex.IGNORECASE)
-            copyright_text = regex.sub("This (file )*is free software.*", "", copyright_text,
-                                  flags=regex.IGNORECASE)
-            copyright_text = regex.sub("This program is made available under.*", "", copyright_text,
-                                  flags=regex.IGNORECASE)
-
-            # Code cleanup, where copyrights are added to code, often there are keywords that can be used
-            # to show where the copyright ends and the code starts, happens often in minified java script
-            copyright_text = regex.sub("package \w.*", "", copyright_text)  # Remove where is copyright is part of java file
-            copyright_text = regex.sub("@(Deprecated|SuppressWarnings|version|param).*", "",
-                                  copyright_text)  # part of java file
-            # Javascript
-            copyright_text = regex.sub("(static|public|protected|private|class|interface).*", "",copyright_text)
-
-
-            # And finally....
-            copyright_text = regex.sub('[,.]\s?$', '', copyright_text)  # Punctuation? Where were going we don't need punctuation.
-            copyright_text = regex.sub('".*', '', copyright_text)
-            copyright_text = copyright_text.strip()
+            copyright_text = copyright_entry['updatedCopyright']
+            copyright_text = cprocessor.preprocess(copyright_text)
 
             logging.debug("processed copyright:" + copyright_text)
             copyright_entry["processed_copyright"] = copyright_text
 
 
     def filter_copyrights(self):
-        p = regex.compile(r'copyright[ ][^0-9]{0,20}[12][90][0-9]{2}|\(C\)[ ,\-:;\w]{5}|©[ ,\-:\w]{5}|@author', regex.IGNORECASE)
+        p = regex.compile(r'copyright[ :]{1,2}[^0-9]{0,20}[12][90][0-9]{2}|\(C\)\s[ ,\-:;\w]{5}|©\s[ ,\-:\w]{5}|@author', regex.IGNORECASE)
         matches = {}
         rejected_matches = []
         for copyright in self.copyrights:
@@ -276,7 +208,6 @@ class CopyrightManager:
     def print_range(self, date):
         output = []
         year_list = list(date.keys())
-        year_list.append(999999)
         year_list.sort()
         start_year = None
         last_year = None
@@ -299,14 +230,13 @@ class CopyrightManager:
         return ','.join(output)
 
 
-    def get_copyrights(self, showRejected=False, annotateResults=False, unfiltered = False):
+    def get_copyrights(self, cprocessor, showRejected=False, annotateResults=False, unfiltered = False):
 
         if not unfiltered:
         #Preprocess copyrights to remove noise
-            self.preprocess_copyrights()
-            filtered_copyrights,rejected_copyrights=self.filter_copyrights()
-
-            coalesced_copyrights,non_coalesced_copyrights = self.coalesce_dates(filtered_copyrights)
+            self.preprocess_copyrights(cprocessor)
+            filtered_copyrights, rejected_copyrights=self.filter_copyrights()
+            coalesced_copyrights, non_coalesced_copyrights = self.coalesce_dates(filtered_copyrights)
 
             output=coalesced_copyrights
             output.extend(non_coalesced_copyrights)
