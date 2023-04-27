@@ -1,3 +1,5 @@
+#!/
+
 from blackduck.HubRestApi import HubInstance
 import logging
 import regex

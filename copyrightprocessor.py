@@ -11,40 +11,42 @@ class CopyrightProcessor:
         self.code_fragments = self.load_code_fragements()
         self.license_fragments = self.load_license_fragments() 
         
-
+    # called by __init__
     def load_code_fragements(self):
         """Load code fragments sorted by language"""
 
         code_dict = {}
         code_dict['csharp'] = []
-        code_dict['csharp'].append("#(using|define|if|else|end|nullable).*")            # Remove C# preprocessor directives
-        code_dict['csharp'].append("(//|/\*|\*/|\*)")                                   # Remove comments
+        code_dict['csharp'].append("#(using|define|if|else|endif|nullable).*")          # Remove C# preprocessor directives
+        #code_dict['csharp'].append("(//|/\*|\*/)\s\w.*")                               # Remove comments
 
         code_dict['cpp'] = []
-        code_dict['cpp'].append("#(include|define|if|else|end|pragma).*")               # Remove C/C++ preprocessor directives
-        code_dict['cpp'].append("(//|/\*|\*/|\*)")                                      # Remove comments
+        code_dict['cpp'].append("#(include|define|if|else|endif|pragma).*")             # Remove C/C++ preprocessor directives
+        #code_dict['cpp'].append("(//|/\*|\*/)\s\w.*")                                  # Remove comments
+        code_dict['cpp'].append("print.*")                                              # Remove print
 
         code_dict['java'] = []
         code_dict['java'].append("@(Deprecated|SuppressWarnings|version|param).*")      # Remove Java attributions
         code_dict['java'].append("package \w.*")                                        # Remove Java packages
-        code_dict['java'].append("(//|/\*|\*/|\*)")                                     # Remove comments
+        #code_dict['java'].append("(//|/\*|\*/)\s\w.*")                                 # Remove comments
 
 
         code_dict['js'] = []
-        code_dict['js'].append("(static|public|protected|private|class|interface).*")   # Remove JavaScript
-        code_dict['js'].append("(//|/\*|\*/|\*)")                                       # Remove comments
+        code_dict['js'].append("^(static|public|protected|private|class|interface).*")  # Remove JavaScript
+        #code_dict['js'].append("(//|/\*|\*/)\s\w.*")                                   # Remove comments
 
         code_dict['xml'] = []
-        code_dict['xml'].append("<!--")                                                 # Remove XML comments
-        code_dict['xml'].append("-->")
+        code_dict['xml'].append("<!--\s\w.*")                                           # Remove XML comments
+        code_dict['xml'].append("-->\s\w.*")
 
         code_dict['shell'] = []
-        code_dict['shell'].append("#")                                                  # Remove shell comments
-        code_dict['shell'].append("rem")
-        code_dict['shell'].append("<#")
+        #code_dict['shell'].append("#\s\w.*")                                           # Remove shell comments
+        code_dict['shell'].append("REM\s\w.*")
+        code_dict['shell'].append("<#\s\w.*")
+        code_dict['shell'].append("@echo\s\w.*")
 
-        code_dict['sql'] = []
-        code_dict['sql'].append("--")                                                  # Remove SQL comments
+        #code_dict['sql'] = []
+        #code_dict['sql'].append("--\s\w.*")                                             # Remove SQL comments
         
         filtered_code_fragments = []
 
@@ -61,21 +63,32 @@ class CopyrightProcessor:
 
         return filtered_code_fragments
 
+    # called by __init__
     def load_license_fragments(self):
         """Load license fragments to remove identified ones by remove_license_fragments"""
        
         license_fragments = []
-        license_fragments.append("Under the terms of.*")
-        license_fragments.append("(Licensed|Released) under.*")
-        license_fragments.append("Redistribution and.*")
-        license_fragments.append("Permission (is|to).*")
-        license_fragments.append("Everyone (is|must).*")
-        license_fragments.append("The.* licenses this file.*",) 
-        license_fragments.append("Verbatim copying and distribution.*")
-        license_fragments.append("This.* (is|file|script|library|program|product|license).*")
+        #license_fragments.append("It is.*")
+        #license_fragments.append("You may.*")
+        #license_fragments.append("Under the terms of.*")
+        #license_fragments.append("(Licensed|Released) (under|to).*")
+        #license_fragments.append("Redistribut.*")
+        #license_fragments.append("Permission (is|to).*")
+        #license_fragments.append("Everyone (is|must).*")
+        #license_fragments.append("The.* this file.*",) 
+        #license_fragments.append("Verbatim.* distribution.*")
+        #license_fragments.append("This.* (is|file|script|software|library|program|product|license).*")
 
-        # Need to check if this is OK? Possibly add it back again after merging?
-        # license_fragments.append("All rights Reserved.*")
+        license_fragments.append("Copyright[sed]{0,2}:?.?\s"
+                                 "(see|all|and|or|on|is|as|in|to|if|are|for|the|attribut|situation|under|dnl|debian|follow|"
+                                 "year|notice|uri|header|message|date|field|block|list|string|etc|stuff|line|like|"
+                                 "act|law|patent|permission|grant|proposal|applies|disclaimer|software|interface|"
+                                 "file|library|status|format|information|symbol|statement|tag|changelog)\s.*")
+        license_fragments.append("Copyright.* [<\[]?year[>\]]?.*")
+        license_fragments.append("Copyrights .*")
+        license_fragments.append("\(c\) symbol.*")
+        #license_fragments.append("(?<!\w\s)©.*")
+        
 
         return license_fragments
     
@@ -106,8 +119,11 @@ class CopyrightProcessor:
         
         # Concat all lines before max_linex with "\n"
         # Remove all lines after max_lines
-        copyright_text = copyright_text.replace("\\n", "\n").replace("\r\n", "\n")
-        copyright_text = copyright_text.replace("\t", "\n")
+        copyright_text = copyright_text                                     \
+            .replace("\\t", " ").replace("\t", " ")                         \
+            .replace("\\0", "\n").replace("\0", "\n")                       \
+            .replace("\\r", "\r").replace("\\n", "\n").replace("\r\n", "\n")
+        
         if (self.max_lines > 1):
             copyright_text = copyright_text.replace("\n", " ", self.max_lines-1)
         copyright_text = regex.sub("\n.*", "", copyright_text)
@@ -156,8 +172,8 @@ class CopyrightProcessor:
         """Remove < > and [ ] , typically used around mail and urls e.g. <fred@flintstones.com>"""
         copyright_text = copyright_text.replace("<", "").replace(">", "")
         copyright_text = copyright_text.replace("[", "").replace("]", "")
-        copyright_text = copyright_text.replace("{", "").replace("}", "")
-        copyright_text = copyright_text.replace("(", "").replace(")", "")
+        #copyright_text = copyright_text.replace("{", "").replace("}", "")
+        #copyright_text = copyright_text.replace("(", "").replace(")", "")
 
         return copyright_text.strip()
 
@@ -167,15 +183,10 @@ class CopyrightProcessor:
         control_char_regex = regex.compile('[%s]' % regex.escape(control_chars))
 
         return control_char_regex.sub(' ', s)
-
-    def update_copyright_sign(self, s):
-        """Replace copyright sign by (C)"""
-        return s.replace("&copy", "(C)").replace("&#169;", "(C)")
   
     def preprocess(self, copyright_text):
         """ Process raw copyrights to remove unnecessary text"""
-        input = copyright_text
-
+    
         # Remove copyright lines that are garbage, like e.g. a third line"
         copyright_text = self.remove_copyright_lines(copyright_text)
 
@@ -202,13 +213,26 @@ class CopyrightProcessor:
 
         # Remove any non unicode characters
         copyright_text = self.remove_control_chars(copyright_text)
-
-        # Remove copyright symbols and replace with "(C)"
-        copyright_text = self.update_copyright_sign(copyright_text)
         
         return copyright_text
-
     
+    def postprocess(self, copyright_text, min_holder_len = 7):
+        """ Postprocess to withdraw invalid copyrights """
+        p = regex.compile(r'((?:copyright|\(c\)|[\u00A9])[\t ]*:?[\t ]*)+'
+                          r'([<\[\(]?\d{4}~?:?,?(?:[\t ]*(?:-|,|\/)*(?:[\t ]*\d{4}))*[>\]\)]?[\t ]+)?'
+                          r'([\w\t \-.,<>*&@\(\)\[\]]{3,255})', flags=regex.IGNORECASE)
+            
+        m = p.search(copyright_text)
+        if m:
+            copyright = m.group(1)
+            date = m.group(2)
+            holder = m.group(3)
 
-
-    
+            if copyright:
+                if date and holder:
+                    return copyright_text, ""
+                elif holder:
+                    if len(str(holder)) >= min_holder_len and str(holder).lower().find("copyright") == -1 :
+                        return copyright_text, ""
+            
+        return "", copyright_text
